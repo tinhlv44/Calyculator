@@ -1,21 +1,27 @@
 import { StatusBar } from 'expo-status-bar';
 import React , {useState} from 'react'
-import { StyleSheet, Text, View, TouchableOpacity, Vibration, ScrollView, Alert} from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Vibration, ScrollView } from 'react-native';
 import {Entypo} from '@expo/vector-icons';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import Octicons from '@expo/vector-icons/Octicons';
 import Feather from '@expo/vector-icons/Feather';
-import { evaluate } from 'mathjs'
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { evaluate, log } from 'mathjs'
 
 export default App = () => {
 
   const [darkMode, setDarkMode] = useState(false);
   const [currentNumber, setCurrentNumber] = useState('');
+  const [currentMath, setCurrentMath] = useState('');
   const [lastNumber, setLastNumber] = useState('');
   const [history, setHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isDegreeMode, setIsDegreeMode] = useState(true);
 
-  const buttons = ['C', 'DEL', '%', '/', 7, 8, 9, '*', 4, 5, 6, '-', 1, 2,3, '+', 0, '00', '.', '=']
+  const buttons = ['C', 'DEL', '%', '/', 7, 8, 9, '*', 4, 5, 6, '-', 1, 2,3, '+', '00', 0, '.', '=']
+  const buttonEx = ['(', ')', 'log','ln','sqrt','!','^','exp','sin','cos','tan','pi']
+
   const styles = StyleSheet.create({
     container: {
       flexDirection:'column',
@@ -23,8 +29,8 @@ export default App = () => {
       height:'100%',
     },
     results: {
-      backgroundColor: darkMode ? '#373a4b' : '#f5f5f5',
-      flex:4,
+      backgroundColor: darkMode ? '#05090c' : '#f5f5f5',
+      flex:5,
       alignItems: 'flex-end',
       justifyContent: 'flex-end',
     },
@@ -40,9 +46,13 @@ export default App = () => {
       marginRight: 10,
       alignSelf: 'flex-end',
     },
+    rowButtonTheme:{
+      flexDirection:'row',
+      flex:1, 
+      marginTop:36}
+    ,
     themeButton: {
       alignSelf: 'flex-start',
-      bottom: '5%',
       margin: 15,
       backgroundColor: darkMode ? '#7b8084' : '#e5e5e5',
       alignItems: 'center',
@@ -52,7 +62,7 @@ export default App = () => {
       borderRadius: 25,
     },
     buttons: {
-      flex:6,
+      flex:7,
       flexDirection: 'row',
       flexWrap: 'wrap',
     },
@@ -63,12 +73,19 @@ export default App = () => {
       minHeight: '20%',
       flex: 2,
     },
+    buttonEX: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      minWidth: '24%',
+      minHeight: '12.5%',
+      flex: 1,
+    },
     textButton: {
       color: darkMode ? '#b5b7bb' : '#7c7c7c',
       fontSize: 28,
     },
     historyContainer: {
-      backgroundColor: darkMode ? '#373a4b' : '#f5f5f5',
+      backgroundColor: darkMode ? '#05090c' : '#f5f5f5',
       flex:6,
     },
     historyTitle: {
@@ -98,13 +115,28 @@ export default App = () => {
       color: darkMode ? '#b5b7bb' : '#333',
       fontSize: 16,
     },
-    
+    expandedSection:{
+      flex:1
+    },
   })
   function calculator() {
     const lastChar = currentNumber[currentNumber.length - 1];
     try {
-      let result;
-      result = evaluate(currentNumber.replaceAll('%','/100',)+'!').toString();
+      let result;  
+      let expression = currentNumber;
+      if (isDegreeMode) {
+        expression = expression
+          .replace(/sin\((.*?)\)/g, 'sin(unit($1, "deg"))')
+          .replace(/cos\((.*?)\)/g, 'cos(unit($1, "deg"))')
+          .replace(/tan\((.*?)\)/g, 'tan(unit($1, "deg"))');
+      }
+      expression = expression
+          .replace(/log\((.*?)\)/g, 'log($1, 10)')
+          .replace(/ln\((.*?)\)/g, 'log($1)')
+      expression = expression
+        .replace('π','pi')
+        .replace('√','sqrt')
+      result = evaluate(expression.replaceAll('%', '/100')).toString();
       if (result === 'Infinity') {
         setLastNumber('Không thể chia cho 0');
       } else {
@@ -112,7 +144,7 @@ export default App = () => {
         setHistory([...history, { expression: currentNumber, result }]);
       }
     } catch (error) {
-      console.error("Lỗi biểu thức: ", error);
+      //console.error("Lỗi biểu thức: ", error);
       setLastNumber("Không hợp lệ");
     }
   }
@@ -120,6 +152,7 @@ export default App = () => {
   function handleInput(buttonPressed) {
     const operators = ['+', '-', '*', '/'];
     const numbers = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '00', '.'];
+    const addParenthes = ['log', 'ln','exp','sin','cos','tan']
     const lastChar = currentNumber[currentNumber.length - 1];  
     Vibration.vibrate(35);
     if (['Không thể chia cho 0', 'Không hợp lệ', 'Đạt giới hạn ký tự'].includes(lastNumber)) {
@@ -167,6 +200,21 @@ export default App = () => {
       setCurrentNumber(currentNumber + buttonPressed);
       return;
     }
+    if (addParenthes.includes(buttonPressed)){
+      setCurrentNumber(currentNumber + buttonPressed +'(');
+      return
+    }
+    if (buttonPressed === 'pi'){
+      setCurrentNumber(currentNumber + 'π');
+      return
+    }
+    if (buttonPressed === 'sqrt'){
+      setCurrentNumber(currentNumber + '√(');
+      return
+    }
+    if (buttonPressed === '00'){
+      return
+    }
     if (numbers.includes(buttonPressed.toString())) {
       setCurrentNumber(currentNumber + buttonPressed.toString());
       return;
@@ -196,16 +244,29 @@ export default App = () => {
     <View style={styles.container}>
       <StatusBar style={darkMode?'light':'dark'}/>
       <View style={styles.results}>
-        <TouchableOpacity style={styles.themeButton}>
-          <Entypo name={darkMode ? 'light-up': 'moon'} size={24} color={darkMode ? 'white' : 'black'} 
-            onPress={() => darkMode ? setDarkMode(false) : setDarkMode(true)}/>
+        <View style={styles.rowButtonTheme}>
+          <TouchableOpacity style={styles.themeButton}>
+            <Entypo name={darkMode ? 'light-up': 'moon'} size={24} color={darkMode ? 'white' : 'black'} 
+              onPress={() => darkMode ? setDarkMode(false) : setDarkMode(true)}/>
 
-        </TouchableOpacity>
-        <Text style={styles.historyText}>{lastNumber}</Text>
-        <Text style={styles.resultText}>{currentNumber}</Text>
-        <TouchableOpacity onPress={() => showHistory?setShowHistory(false):setShowHistory(true) } style={styles.historyButton}>
-            <Text style={styles.buttonHistoryText}>{showHistory?(<AntDesign name="back" size={24} color={!darkMode?'black':'white'} />):(<Octicons name="history" size={24} color={!darkMode?'black':'white'} />)}</Text>
           </TouchableOpacity>
+          <TouchableOpacity style={styles.themeButton}>
+            <Text style={[styles.buttonHistoryText, {fontWeight:'bold'}]} 
+              onPress={() => setIsDegreeMode(!isDegreeMode)}>
+                {isDegreeMode?'DEG':'RAD'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowHistory(!showHistory) } style={styles.themeButton}>
+            <Text style={styles.buttonHistoryText}>
+              {showHistory?
+              (<AntDesign name="back" size={24} color={!darkMode?'black':'white'} />)
+              :
+              (<Octicons name="history" size={24} color={!darkMode?'black':'white'} />)}
+            </Text>
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.historyText}>{lastNumber}</Text>
+        <Text style={styles.resultText}>{currentNumber}</Text>        
       </View>
       {showHistory
       ?
@@ -224,30 +285,54 @@ export default App = () => {
 
       ):(
         <View style={styles.buttons}>
-        {buttons.map((button) => (
-            <TouchableOpacity
-              key={button}
-              style={[
-                styles.button,
-                {
-                  backgroundColor:
-                    typeof button === 'number' || button === '.' || button === '00' 
-                      ? darkMode ? '#373a4b' : '#f5f5f5'
-                      : button === '=' || button === 'C' || button === 'DEL' ? '#e6202a' :
+          {isExpanded && (
+              buttonEx.map((button) => (
+                <TouchableOpacity
+                  key={button}
+                  style={[
+                    styles.buttonEX,
+                    {
+                      backgroundColor:
                         darkMode ? '#2f2f2f' : '#ededed',
-                }
-              ]}
-              onPress={() => handleInput(button)}
-            >
-              <Text style={[styles.textButton, { color: darkMode ? 'white' : 'black' }]}>
-                {button === 'DEL' ? <Feather name="delete" size={24} color={darkMode ? 'white' : 'black'} /> : button}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+                    }
+                  ]}
+                  onPress={() => handleInput(button)}
+                >
+                  <Text style={[styles.textButton, { color: darkMode ? 'white' : 'black' }]}>
+                    {button === 'sqrt' ? '√'
+                    : button === 'pi' ? 'π'                   
+                    : button}
+                  </Text>
+                </TouchableOpacity>
+              ))
+          )}
 
+          {buttons.map((button) => (
+              <TouchableOpacity
+                key={button}
+                style={[
+                  !isExpanded? styles.button:styles.buttonEX,
+                  {
+                    backgroundColor:
+                      typeof button === 'number' || button === '.' || button === '00' 
+                        ? darkMode ? 'black' : '#f8fffe'
+                        : button === 'C' || button === 'DEL' ? '#e6202a' 
+                        : button === '='  ? '#0084ff' 
+                        : darkMode ? '#2f2f2f' : '#ededed',
+                  }
+                ]}
+                onPress={button === '00' ? () => setIsExpanded(!isExpanded) : () => handleInput(button)}
+              >
+                <Text style={[styles.textButton, { color: darkMode ? 'white' : 'black' }]}>
+                  {button === 'DEL' ? <Feather name="delete" size={24} color={darkMode ? 'white' : 'black'} /> 
+                  : button === '00' ? !isExpanded ? (<Ionicons name="expand" size={24} color='red' />) 
+                  : (<Ionicons name="contract" size={24} color='red' />)
+                  : button}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
       )}
-
     </View>
   )
 }
